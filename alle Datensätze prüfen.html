@@ -7,7 +7,7 @@
     {#each schueler as s}
       <dl><b>{s.Name}, {s.Klasse}:</b></dl>
       {#each  s.errors as error}
-        <dd>{error.field}: {error.type}</dd>
+        <dd>{error.field}: {error.type === "required" ? 'erforderlich':error.type}</dd>
       {/each}
     {/each}
   {/await}
@@ -22,16 +22,16 @@
 
 
 const Schueler = R('schild').Schueler
-
+console.log(Schueler)
 Schueler.knex(R('knex')(knexConfig))
 let alleSchueler
 async function holeSchueler (status) {
     // alle Schüler aus der DB holen
-  alleSchueler = await Schueler.query().where('Status', status)
-  .andWhere('Geloescht', '-')
-  .andWhere('Gesperrt', '-')
-  .map(s => ({...s, errors: promise(s)}))
-  .filter(s => s.errors.length)
+  const a = await Schueler.query().where('Status', status)
+    .andWhere('Geloescht', '-')
+    .andWhere('Gesperrt', '-')
+  alleSchueler = a.map(s => ({...s, errors: promise(s)}))
+    .filter(s => s.errors.length)
 }
 
 function promise (s) { return v.validate(s, schema.schueler) }
