@@ -1,10 +1,7 @@
-const fs = require('fs');
 const path = require('path');
-const Bluebird = require('bluebird');
 const { sortBy, filter } = require('lodash');
 
-const readDirAsync = (path) =>
-  Bluebird.promisify(fs.readdir, { context: fs })(path);
+const { readdir } = require('../../util/fs');
 
 const DEFAULT_LOAD_EXTENSIONS = Object.freeze([
   '.co',
@@ -36,7 +33,7 @@ class FsMigrations {
     // Get a list of files in all specified migration directories
     const readMigrationsPromises = this.migrationsPaths.map((configDir) => {
       const absoluteDir = path.resolve(process.cwd(), configDir);
-      return readDirAsync(absoluteDir).then((files) => ({
+      return readdir(absoluteDir).then((files) => ({
         files,
         configDir,
         absoluteDir,

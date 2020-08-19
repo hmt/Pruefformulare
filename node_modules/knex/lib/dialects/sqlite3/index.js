@@ -1,9 +1,8 @@
 // SQLite3
 // -------
-const Bluebird = require('bluebird');
-
 const inherits = require('inherits');
 const { isUndefined, map, defaults } = require('lodash');
+const { promisify } = require('util');
 
 const Client = require('../../client');
 
@@ -62,7 +61,7 @@ Object.assign(Client_SQLite3.prototype, {
 
   // Get a raw connection from the database, returning a promise with the connection object.
   acquireRawConnection() {
-    return new Bluebird((resolve, reject) => {
+    return new Promise((resolve, reject) => {
       const db = new this.driver.Database(
         this.connectionSettings.filename,
         (err) => {
@@ -77,8 +76,9 @@ Object.assign(Client_SQLite3.prototype, {
 
   // Used to explicitly close a connection, called internally by the pool when
   // a connection times out or the pool is shutdown.
-  destroyRawConnection(connection) {
-    return Bluebird.fromCallback(connection.close.bind(connection));
+  async destroyRawConnection(connection) {
+    const close = promisify((cb) => connection.close(cb));
+    return close();
   },
 
   // Runs the query on the specified connection, providing the bindings and any
@@ -96,7 +96,7 @@ Object.assign(Client_SQLite3.prototype, {
       default:
         callMethod = 'all';
     }
-    return new Bluebird(function(resolver, rejecter) {
+    return new Promise(function(resolver, rejecter) {
       if (!connection || !connection[callMethod]) {
         return rejecter(
           new Error(`Error calling ${callMethod} on connection.`)
@@ -116,15 +116,13 @@ Object.assign(Client_SQLite3.prototype, {
 
   _stream(connection, sql, stream) {
     const client = this;
-    return new Bluebird(function(resolver, rejecter) {
+    return new Promise(function(resolver, rejecter) {
       stream.on('error', rejecter);
       stream.on('end', resolver);
       return client
         ._query(connection, sql)
         .then((obj) => obj.response)
-        .map(function(row) {
-          stream.write(row);
-        })
+        .then((rows) => rows.forEach((row) => stream.write(row)))
         .catch(function(err) {
           stream.emit('error', err);
         })

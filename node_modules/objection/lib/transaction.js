@@ -1,15 +1,12 @@
 'use strict';
 
-const Bluebird = require('bluebird');
-const { Model } = require('./model/Model');
 const promiseUtils = require('./utils/promiseUtils');
-const { isSubclassOf } = require('./utils/classUtils');
 const { isFunction } = require('./utils/objectUtils');
 
 function transaction() {
   // There must be at least one model class and the callback.
   if (arguments.length < 2) {
-    return Bluebird.reject(
+    return Promise.reject(
       new Error(
         'objection.transaction: provide at least one Model class to bind to the transaction or a knex instance'
       )
@@ -18,14 +15,9 @@ function transaction() {
 
   let args = Array.from(arguments);
 
-  if (!isSubclassOf(args[0], Model) && isFunction(args[0].transaction)) {
+  if (!isModelClass(args[0]) && isFunction(args[0].transaction)) {
     let knex = args[0];
     args = args.slice(1);
-
-    // If the function is a generator, wrap it using Bluebird.coroutine.
-    if (isGenerator(args[0])) {
-      args[0] = Bluebird.coroutine(args[0]);
-    }
 
     return knex.transaction.apply(knex, args);
   } else {
@@ -35,8 +27,8 @@ function transaction() {
     let i;
 
     for (i = 0; i < modelClasses.length; ++i) {
-      if (!isSubclassOf(modelClasses[i], Model)) {
-        return Bluebird.reject(
+      if (!isModelClass(modelClasses[i])) {
+        return Promise.reject(
           new Error('objection.transaction: all but the last argument should be Model subclasses')
         );
       }
@@ -45,17 +37,12 @@ function transaction() {
     let knex = modelClasses[0].knex();
     for (i = 0; i < modelClasses.length; ++i) {
       if (modelClasses[i].knex() !== knex) {
-        return Bluebird.reject(
+        return Promise.reject(
           new Error(
             'objection.transaction: all Model subclasses must be bound to the same database'
           )
         );
       }
-    }
-
-    // If the function is a generator, wrap it using Promise.coroutine.
-    if (isGenerator(callback)) {
-      callback = Bluebird.coroutine(callback);
     }
 
     return knex.transaction(trx => {
@@ -77,19 +64,19 @@ function transaction() {
 transaction.start = function(modelClassOrKnex) {
   let knex = modelClassOrKnex;
 
-  if (isSubclassOf(modelClassOrKnex, Model)) {
+  if (isModelClass(modelClassOrKnex)) {
     knex = modelClassOrKnex.knex();
   }
 
   if (!knex || !isFunction(knex.transaction)) {
-    return Bluebird.reject(
+    return Promise.reject(
       new Error(
         'objection.transaction.start: first argument must be a model class or a knex instance'
       )
     );
   }
 
-  return new Bluebird((resolve, reject) => {
+  return new Promise((resolve, reject) => {
     knex
       .transaction(trx => {
         resolve(trx);
@@ -100,8 +87,8 @@ transaction.start = function(modelClassOrKnex) {
   });
 };
 
-function isGenerator(fn) {
-  return fn && fn.constructor && fn.constructor.name === 'GeneratorFunction';
+function isModelClass(maybeModel) {
+  return isFunction(maybeModel) && maybeModel.isObjectionModelClass;
 }
 
 module.exports = {

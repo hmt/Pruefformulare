@@ -1,10 +1,7 @@
 'use strict';
 
-const promiseUtils = require('../utils/promiseUtils');
-
-const { isSubclassOf } = require('../utils/classUtils');
+const { deprecate } = require('../utils/deprecate');
 const { isString, isFunction, isRegExp, last } = require('../utils/objectUtils');
-const { QueryBuilderOperation } = require('./operations/QueryBuilderOperation');
 const { QueryBuilderContextBase } = require('./QueryBuilderContextBase');
 const { QueryBuilderUserContext } = require('./QueryBuilderUserContext');
 
@@ -13,7 +10,7 @@ const SelectSelector = /^(select|columns|column|distinct|count|countDistinct|min
 const WhereSelector = /^(where|orWhere|andWhere|find)/;
 const OnSelector = /^(on|orOn|andOn)/;
 const OrderBySelector = /orderBy/;
-const JoinSelector = /(join|joinRaw|joinRelation)$/i;
+const JoinSelector = /(join|joinRaw|joinRelated)$/i;
 const FromSelector = /^(from|into|table)$/;
 
 class QueryBuilderOperationSupport {
@@ -80,14 +77,22 @@ class QueryBuilderOperationSupport {
     if (arguments.length === 0) {
       return ctx.userContext;
     } else {
-      ctx.userContext = ctx.userContext.newFromObject(this, obj);
+      ctx.userContext = ctx.userContext.newMerge(this, obj);
       return this;
     }
   }
 
   mergeContext(obj) {
+    deprecate(
+      '`QueryBuilder#mergeContext` method is deprecated. The `context` method now behaves just like `mergeContext`. `mergeContext` method will be removed in 3.0'
+    );
+
+    return this.context(obj || {});
+  }
+
+  clearContext() {
     const ctx = this._context;
-    ctx.userContext = ctx.userContext.newMerge(this, obj);
+    ctx.userContext = new this.constructor.QueryBuilderUserContext(this);
     return this;
   }
 
@@ -348,7 +353,7 @@ class QueryBuilderOperationSupport {
     }
   }
 
-  callAsyncOperationMethod(operation, hookName, args) {
+  async callAsyncOperationMethod(operation, hookName, args) {
     operation.removeChildOperationsByHookName(hookName);
 
     this._activeOperations.push({
@@ -356,16 +361,11 @@ class QueryBuilderOperationSupport {
       hookName
     });
 
-    return promiseUtils
-      .try(() => operation[hookName](...args))
-      .then(result => {
-        this._activeOperations.pop();
-        return result;
-      })
-      .catch(err => {
-        this._activeOperations.pop();
-        return Promise.reject(err);
-      });
+    try {
+      return await operation[hookName](...args);
+    } finally {
+      this._activeOperations.pop();
+    }
   }
 
   addOperation(operation, args) {
@@ -468,7 +468,10 @@ function buildFunctionForOperationSelector(operationSelector) {
     return op => operationSelector.test(op.name);
   } else if (isString(operationSelector)) {
     return op => op.name === operationSelector;
-  } else if (isSubclassOf(operationSelector, QueryBuilderOperation)) {
+  } else if (
+    isFunction(operationSelector) &&
+    operationSelector.isObjectionQueryBuilderOperationClass
+  ) {
     return op => op.is(operationSelector);
   } else if (isFunction(operationSelector)) {
     return operationSelector;

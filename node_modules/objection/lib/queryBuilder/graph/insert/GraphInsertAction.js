@@ -14,14 +14,12 @@ const promiseUtils = require('../../../utils/promiseUtils');
  * when needed.
  */
 class GraphInsertAction extends GraphAction {
-  constructor({ nodes, currentGraph, dependencies, graphOptions }) {
-    super();
+  constructor(graphData, { nodes, dependencies }) {
+    super(graphData);
 
     // Nodes to insert.
     this.nodes = nodes;
-    this.currentGraph = currentGraph;
     this.dependencies = dependencies;
-    this.graphOptions = graphOptions;
   }
 
   run(builder) {
@@ -45,10 +43,10 @@ class GraphInsertAction extends GraphAction {
     return batches;
   }
 
-  _insertBatch(parentBuilder, nodes) {
-    return this._beforeInsert(nodes)
-      .then(() => this._insert(parentBuilder, nodes))
-      .then(() => this._afterInsert(nodes));
+  async _insertBatch(parentBuilder, nodes) {
+    await this._beforeInsert(nodes);
+    await this._insert(parentBuilder, nodes);
+    await this._afterInsert(nodes);
   }
 
   _beforeInsert(nodes) {
@@ -98,9 +96,9 @@ class GraphInsertAction extends GraphAction {
 
     this._resolveReferences(dependencyNode);
 
-    for (let i = 0, l = targetProp.size; i < l; ++i) {
+    targetProp.forEach(i => {
       targetProp.setProp(dependentNode.obj, i, sourceProp.getProp(dependencyNode.obj, i));
-    }
+    });
   }
 
   _resolvePropertyReferenceNode(dependencyNode, edge) {
@@ -154,15 +152,15 @@ class GraphInsertAction extends GraphAction {
 
         const prop = edge.isOwnerNode(node) ? edge.relation.ownerProp : edge.relation.relatedProp;
 
-        for (let i = 0, l = prop.size; i < l; ++i) {
+        prop.forEach(i => {
           const value = prop.getProp(node.obj, i);
 
           if (value !== undefined) {
-            continue;
+            return;
           }
 
           prop.setProp(node.obj, i, prop.getProp(currentNode.obj, i));
-        }
+        });
       }
     }
   }
@@ -171,7 +169,7 @@ class GraphInsertAction extends GraphAction {
     const [{ modelClass }] = nodes;
 
     nodes = nodes.filter(node => {
-      return this.graphOptions.shouldInsert(node, this.currentGraph);
+      return this.graphOptions.shouldInsert(node, this.graphData);
     });
 
     for (const node of nodes) {

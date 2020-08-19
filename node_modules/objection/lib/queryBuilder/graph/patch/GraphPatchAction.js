@@ -6,14 +6,10 @@ const { union, difference, isObject, jsonEquals } = require('../../../utils/obje
 const promiseUtils = require('../../../utils/promiseUtils');
 
 class GraphPatchAction extends GraphAction {
-  constructor({ nodes, graph, currentGraph, graphOptions }) {
-    super();
-
+  constructor(graphData, { nodes }) {
+    super(graphData);
     // Nodes to patch.
     this.nodes = nodes;
-    this.graph = graph;
-    this.currentGraph = currentGraph;
-    this.graphOptions = graphOptions;
   }
 
   run(builder) {
@@ -23,8 +19,8 @@ class GraphPatchAction extends GraphAction {
   }
 
   _runForNode(builder, node) {
-    const shouldPatch = this.graphOptions.shouldPatch(node, this.currentGraph);
-    const shouldUpdate = this.graphOptions.shouldUpdate(node, this.currentGraph);
+    const shouldPatch = this.graphOptions.shouldPatch(node, this.graphData);
+    const shouldUpdate = this.graphOptions.shouldUpdate(node, this.graphData);
 
     // BelongsToOneRelation inserts and relates change the parent object's
     // properties. That's why we handle them here.
@@ -97,7 +93,7 @@ class GraphPatchAction extends GraphAction {
       ) {
         const { relation } = edge;
 
-        for (let i = 0, l = relation.ownerProp.size; i < l; ++i) {
+        relation.ownerProp.forEach(i => {
           const currentValue = currentNode && relation.ownerProp.getProp(currentNode.obj, i);
           const relatedValue = relation.relatedProp.getProp(edge.relatedNode.obj, i);
 
@@ -105,7 +101,7 @@ class GraphPatchAction extends GraphAction {
             relation.ownerProp.setProp(node.obj, i, relatedValue);
             updatedProps.push(relation.ownerProp.props[i]);
           }
-        }
+        });
       }
     }
 
@@ -125,18 +121,18 @@ class GraphPatchAction extends GraphAction {
         edge.isOwnerNode(currentNode) &&
         edge.relation.isObjectionBelongsToOneRelation &&
         node.obj[edge.relation.name] === null &&
-        this.graphOptions.shouldDeleteOrUnrelate(edge.relatedNode, this.graph)
+        this.graphOptions.shouldDeleteOrUnrelate(edge.relatedNode, this.graphData)
       ) {
         const { relation } = edge;
 
-        for (let i = 0, l = relation.ownerProp.size; i < l; ++i) {
+        relation.ownerProp.forEach(i => {
           const currentValue = relation.ownerProp.getProp(currentNode.obj, i);
 
           if (currentValue != null) {
             relation.ownerProp.setProp(node.obj, i, null);
             updatedProps.push(relation.ownerProp.props[i]);
           }
-        }
+        });
       }
     }
 

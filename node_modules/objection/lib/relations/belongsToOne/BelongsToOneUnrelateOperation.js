@@ -6,9 +6,9 @@ class BelongsToOneUnrelateOperation extends UnrelateOperation {
   onAdd() {
     const ids = new Array(this.relation.ownerProp.size);
 
-    for (let i = 0, l = this.relation.ownerProp.size; i < l; ++i) {
+    this.relation.ownerProp.forEach(i => {
       ids[i] = null;
-    }
+    });
 
     this.ids = [ids];
     return true;
@@ -18,20 +18,41 @@ class BelongsToOneUnrelateOperation extends UnrelateOperation {
     const patch = {};
     const ownerProp = this.relation.ownerProp;
 
-    for (let i = 0, l = ownerProp.size; i < l; ++i) {
+    ownerProp.forEach(i => {
       const relatedValue = this.ids[0][i];
 
-      ownerProp.setProp(this.owner, i, relatedValue);
-      ownerProp.patch(patch, i, relatedValue);
-    }
+      if (this.owner.isModels) {
+        for (const owner of this.owner.modelArray) {
+          ownerProp.setProp(owner, i, relatedValue);
+        }
+      }
 
-    return this.relation.ownerModelClass
+      ownerProp.patch(patch, i, relatedValue);
+    });
+
+    const ownerIdProp = this.relation.ownerModelClass.getIdRelationProperty();
+    const ownerRefs = ownerIdProp.refs(builder);
+    const ownerIds = this.owner.getProps(this.relation, ownerIdProp);
+
+    const query = this.relation.ownerModelClass
       .query()
       .childQueryOf(builder)
-      .copyFrom(builder, builder.constructor.JoinSelector)
-      .copyFrom(builder, builder.constructor.WhereSelector)
       .patch(patch)
-      .findById(this.owner.$id());
+      .whereInComposite(ownerRefs, ownerIds);
+
+    // We are creating a querey to the related items. So any `where` statements
+    // must filter the *related* items, not the root query above, which is actually
+    // for the owners.
+    if (builder.has(builder.constructor.WhereSelector)) {
+      query.whereExists(
+        this.relation.ownerModelClass
+          .relatedQuery(this.relation.name)
+          .copyFrom(builder, builder.constructor.JoinSelector)
+          .copyFrom(builder, builder.constructor.WhereSelector)
+      );
+    }
+
+    return query;
   }
 }
 

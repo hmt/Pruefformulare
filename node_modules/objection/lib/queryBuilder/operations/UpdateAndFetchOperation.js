@@ -2,7 +2,6 @@
 
 const { DelegateOperation } = require('./DelegateOperation');
 const { UpdateOperation } = require('./UpdateOperation');
-const { afterReturn } = require('../../utils/promiseUtils');
 
 class UpdateAndFetchOperation extends DelegateOperation {
   constructor(name, opt) {
@@ -26,35 +25,36 @@ class UpdateAndFetchOperation extends DelegateOperation {
   }
 
   onBuild(builder) {
-    super.onBuild(builder);
-
     if (!this.skipIdWhere) {
       builder.findById(this.id);
     }
+
+    super.onBuild(builder);
   }
 
-  onAfter2(builder, numUpdated) {
+  async onAfter2(builder, numUpdated) {
     if (numUpdated == 0) {
       // If nothing was updated, we should fetch nothing.
-      return afterReturn(super.onAfter2(builder, numUpdated), undefined);
+      await super.onAfter2(builder, numUpdated);
+      return undefined;
     }
 
-    return builder
-      .modelClass()
-      .query()
+    const fetched = await builder
+      .emptyInstance()
       .childQueryOf(builder)
-      .findById(this.id)
-      .castTo(builder.resultModelClass())
-      .then(fetched => {
-        let retVal = undefined;
-
-        if (fetched) {
-          this.model.$set(fetched);
-          retVal = this.model;
+      .modify(builder => {
+        if (!this.skipIdWhere) {
+          builder.findById(this.id);
         }
+      })
+      .castTo(builder.resultModelClass());
 
-        return afterReturn(super.onAfter2(builder, numUpdated), retVal);
-      });
+    if (fetched) {
+      this.model.$set(fetched);
+    }
+
+    await super.onAfter2(builder, numUpdated);
+    return fetched ? this.model : undefined;
   }
 
   clone() {

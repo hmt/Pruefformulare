@@ -42,7 +42,7 @@ class RelationProperty {
     this._cols = refs.map(it => it.column);
     this._propGetters = paths.map(it => createGetter(it.path));
     this._propSetters = paths.map(it => createSetter(it.path));
-    this._patchers = refs.map(it => createPatcher(it));
+    this._patchers = refs.map((it, i) => createPatcher(it, paths[i].path));
   }
 
   static get ModelNotFoundError() {
@@ -77,6 +77,12 @@ class RelationProperty {
   // conversion.
   get cols() {
     return this._cols;
+  }
+
+  forEach(callback) {
+    for (let i = 0, l = this.size; i < l; ++i) {
+      callback(i);
+    }
   }
 
   // Creates a concatenated string from the property values of the given object.
@@ -135,7 +141,7 @@ class RelationProperty {
   // Returns an instance of ReferenceBuilder that points to the index:th
   // value of a row.
   ref(builder, index) {
-    const table = builder.tableRefFor(this.modelClass.getTableName());
+    const table = builder.tableRefFor(this.modelClass);
 
     return this._refs[index].clone().table(table);
   }
@@ -227,9 +233,9 @@ function createSetter(path) {
   }
 }
 
-function createPatcher(ref) {
+function createPatcher(ref, path) {
   if (ref.isPlainColumnRef) {
-    return (patch, value) => (patch[ref.column] = value);
+    return (patch, value) => (patch[path[0]] = value);
   } else {
     // Objection `patch`, `update` etc. methods understand field expressions.
     return (patch, value) => (patch[ref.expression] = value);

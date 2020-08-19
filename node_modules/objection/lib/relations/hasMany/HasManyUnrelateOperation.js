@@ -5,14 +5,13 @@ const { UnrelateOperation } = require('../../queryBuilder/operations/UnrelateOpe
 class HasManyUnrelateOperation extends UnrelateOperation {
   queryExecutor(builder) {
     const patch = {};
-    const ownerProp = this.relation.ownerProp;
     const relatedProp = this.relation.relatedProp;
-    const ownerValues = ownerProp.getProps(this.owner);
+    const ownerValues = this.owner.getProps(this.relation);
     const relatedRefs = relatedProp.refs(builder);
 
-    for (let i = 0, l = relatedProp.size; i < l; ++i) {
+    relatedProp.forEach(i => {
       relatedProp.patch(patch, i, null);
-    }
+    });
 
     return this.relation.relatedModelClass
       .query()
@@ -20,7 +19,7 @@ class HasManyUnrelateOperation extends UnrelateOperation {
       .patch(patch)
       .copyFrom(builder, builder.constructor.JoinSelector)
       .copyFrom(builder, builder.constructor.WhereSelector)
-      .whereComposite(relatedRefs, ownerValues)
+      .whereInComposite(relatedRefs, ownerValues)
       .modify(this.relation.modify);
   }
 }
