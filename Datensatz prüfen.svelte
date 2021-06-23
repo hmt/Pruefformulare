@@ -48,7 +48,7 @@ Für weitere den Knopf drücken:
       errors: [
         v.validate(s, schema.schueler),
         v.validate(a(s), schema.abschnitt),
-        v.validate({noten: a(s).noten}, schema.noten),
+        v.validate({noten: a(s)?.noten}, schema?.noten),
         abi && v.validate(s.abi_abschluss || {}, schema.abi),
         fhr && v.validate(s.fhr_abschluss || {}, schema.fhr),
         ba && v.validate(s.bk_abschluss || {}, schema.ba)
