@@ -11,7 +11,7 @@ export const schueler = {
   Geburtsdatum: { type: 'date', convert: true },
   Geburtsort: { type: 'string', empty: false },
   Geloescht: { type: 'string', empty: false },
-  Geschlecht: { type: 'number', integer: true, min: 3, max: 4 },
+  Geschlecht: { type: 'number', integer: true, min: 3, max: 10 },
   Gesperrt: { type: 'string', empty: false },
   Klasse: { type: 'string', empty: false },
   Name: { type: 'string', empty: false },

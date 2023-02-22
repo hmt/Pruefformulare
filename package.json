@@ -9,7 +9,6 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "fastest-validator": "^1.6.1",
-    "schild": "^0.7.0"
+    "fastest-validator": "^1.6.1"
   }
 }
