@@ -19,7 +19,8 @@ export const schueler = {
   PLZ: { type: 'string', empty: false, length: 5, numeric: true },
   Strasse: { type: 'string', empty: false },
   Telefon: { type: 'string', optional: true },
-  Vorname: { type: 'string', empty: false }
+  Vorname: { type: 'string', empty: false },
+  Lehrer: { type: 'string', empty: false }
 }
 
 export const abschnitt = {
